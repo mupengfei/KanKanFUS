@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+      http://www.springframework.org/schema/beans/spring-beans-4.0.xsd">
+
+
+	<bean id="springContextUtil " class="com.core.SpringContextUtil "  />
+
+	<bean id="configService" class="com.peeply.service.ConfigService">
+		<property name="fileRepository" value="${STREAM_FILE_REPOSITORY}" />
+		<property name="crossServer" value="${STREAM_CROSS_SERVER}" />
+		<property name="crossed" value="${STREAM_IS_CROSS}" />
+		<property name="crossOrigins" value="${STREAM_CROSS_ORIGIN}" />
+		<property name="deleteFinished" value="${STREAM_DELETE_FINISH}" />
+	</bean>
+
+
+
+
+	<bean id="ioService" class="com.peeply.service.IoService">
+		<property name="configService" ref="configService" />
+		<property name="eventService" ref="eventService" />
+		
+	</bean>
+
+
+
+	<bean id="tokenService" class="com.peeply.service.TokenService">
+		<property name="ioService" ref="ioService" />
+		<property name="uploadTokenDAO" ref="uploadTokenDAO" />
+		<property name="UploadTokenLogDAO" ref="UploadTokenLogDAO" />
+	</bean>
+
+
+
+	<bean id="eventService" class="com.peeply.service.EventService">
+		<property name="tokenService" ref="tokenService"></property>
+		<property name="eventListeners">
+			<list>
+				<ref bean="defaultUploadEventImpl" />
+			</list>
+		</property>
+	</bean>
+
+
+
+
+	<bean id="defaultUploadEventImpl" class="com.peeply.DefaultUploadEventImpl">
+		<property name="tokenService" ref="tokenService"></property>
+	</bean>
+
+
+
+	<bean id="uploadTokenDAO" class="com.peeply.DAO.UploadTokenDAO">
+		<property name="sessionFactory" ref="sessionFactory" />
+	</bean>
+	
+	<bean id="UploadTokenLogDAO" class="com.peeply.DAO.UploadTokenLogDAO">
+		<property name="sessionFactory" ref="sessionFactory" />
+	</bean>
+
+
+
+	<bean name="startQuertz" lazy-init="false" autowire="no"
+		class="org.springframework.scheduling.quartz.SchedulerFactoryBean">
+		<property name="triggers">
+			<list>
+				<ref bean="myJobTrigger" />
+			</list>
+		</property>
+	</bean>
+
+
+	<!-- quartz-2.x的配置 -->
+	<bean id="myJobTrigger"
+		class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+		<property name="jobDetail">
+			<ref bean="myJobDetail" />
+		</property>
+		<property name="cronExpression">
+			<value>${cleanF}</value>
+		</property>
+	</bean>
+	<!-- 调度的配置结束 -->
+
+	<!-- job的配置开始 -->
+	<bean id="myJobDetail"
+		class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+		<property name="targetObject">
+			<ref bean="myJob" />
+		</property>
+		<property name="targetMethod" value="event" />
+	</bean>
+	<!-- job的配置结束 -->
+
+	<!-- 工作的bean -->
+	<bean id="myJob" class="com.peeply.service.CleanStreamService" >
+		<property name="tokenService" ref="tokenService"></property>
+		<property name="ioService" ref="ioService"></property>
+		<property name="cleanDay" value="${cleanDay}"></property>
+	</bean>
+</beans>
